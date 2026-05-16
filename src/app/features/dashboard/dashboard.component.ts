@@ -78,8 +78,8 @@ import { AdminService } from '../../core/services/admin.service';
             <div class="space-y-3">
               <h2 class="text-2xl font-bold text-gray-900">Acerca de la quiniela</h2>
               <ul class="space-y-2 text-sm text-gray-700">
-                <li>• Esta es una quiniela del Team de Finanzas y OB con el propósito de divertirnos durante el Mundial.</li>
-                <li>• El costo de la quiniela es de $1000 pesos por participante.</li>
+                <li>• Esta es una <b> quiniela del Team de Finanzas y OB </b> con el propósito de divertirnos durante el Mundial.</li>
+                <li>• El costo de la quiniela es de <b> $1000 pesos </b> por participante.</li>
                 <li>• Los usuarios se pueden registrar pero no podrán participar en la quiniela hasta que un administrador autorice su participación.</li>
                 <li>• Los usuarios pueden predecir marcadores antes de que inicien los partidos.</li>
                 <li>• Las predicciones se bloquean automáticamente cuando comienza un partido.</li>
