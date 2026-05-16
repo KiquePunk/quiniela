@@ -29,21 +29,52 @@ import { MatchStage, MatchWithTeams } from '../../core/models/match.model';
           </div>
         } @else {
           <div class="space-y-6">
-            <div class="bg-white rounded-lg shadow-md p-4">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 class="text-lg font-semibold text-gray-900">Filtrar partidos</h2>
-                  <p class="text-sm text-gray-500">Selecciona la jornada o fase que deseas capturar.</p>
+            <div class="bg-white rounded-2xl shadow-md p-4 sm:p-6 space-y-4">
+              <div class="flex flex-wrap gap-2 rounded-full bg-gray-100 p-1 w-fit">
+                @for (tab of tabs; track tab.value) {
+                  <button
+                    type="button"
+                    (click)="selectTab(tab.value)"
+                    class="rounded-full px-4 py-2 text-sm font-semibold transition-colors"
+                    [class]="selectedTab === tab.value ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-700 hover:bg-white'"
+                  >
+                    {{ tab.label }}
+                  </button>
+                }
+              </div>
+
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  (click)="goToPreviousOption()"
+                  [disabled]="!hasPreviousOption"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-xl text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Anterior"
+                >
+                  ‹
+                </button>
+
+                <div class="flex-1">
+                  <select
+                    [(ngModel)]="selectedOptionValue"
+                    (ngModelChange)="onSelectedOptionChange($event)"
+                    class="w-full rounded-2xl border-2 border-indigo-100 bg-white px-4 py-3 text-sm font-medium text-gray-800 shadow-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    @for (option of currentOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
                 </div>
 
-                <select
-                  [(ngModel)]="selectedFilter"
-                  class="w-full sm:w-80 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+                <button
+                  type="button"
+                  (click)="goToNextOption()"
+                  [disabled]="!hasNextOption"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-xl text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Siguiente"
                 >
-                  @for (option of filterOptions; track option.value) {
-                    <option [value]="option.value">{{ option.label }}</option>
-                  }
-                </select>
+                  ›
+                </button>
               </div>
             </div>
 
@@ -164,18 +195,13 @@ export class PredictionsComponent implements OnInit {
   saving: Record<number, boolean> = {};
   loading = true;
   currentUserId: string = '';
-  selectedFilter = 'JORNADA_1';
+  selectedTab: 'DATE' | 'MATCHDAY' | 'GROUP' = 'MATCHDAY';
+  selectedOptionValue = '';
 
-  readonly filterOptions = [
-    { value: 'JORNADA_1', label: 'Jornada 1' },
-    { value: 'JORNADA_2', label: 'Jornada 2' },
-    { value: 'JORNADA_3', label: 'Jornada 3' },
-    { value: 'LAST_32', label: 'Dieciseisavos de final' },
-    { value: 'LAST_16', label: 'Octavos de final' },
-    { value: 'QUARTER_FINALS', label: 'Cuartos de final' },
-    { value: 'SEMI_FINALS', label: 'Semifinales' },
-    { value: 'THIRD_PLACE', label: 'Partido por el 3er lugar' },
-    { value: 'FINAL', label: 'Final' }
+  readonly tabs = [
+    { value: 'DATE', label: 'Por fecha' },
+    { value: 'MATCHDAY', label: 'Por jornada' },
+    { value: 'GROUP', label: 'Por grupo' }
   ] as const;
 
   constructor(
@@ -197,6 +223,7 @@ export class PredictionsComponent implements OnInit {
     this.matchService.getAllMatches().subscribe({
       next: (matches) => {
         this.matches = matches;
+        this.initializeFilters();
         this.loadPredictions();
       },
       error: (error) => {
@@ -252,6 +279,79 @@ export class PredictionsComponent implements OnInit {
     });
   }
 
+  get dateOptions(): Array<{ value: string; label: string }> {
+    const dateMap = new Map<string, string>();
+
+    this.matches.forEach(match => {
+      const value = this.getDateKey(match.utc_date);
+      if (!dateMap.has(value)) {
+        dateMap.set(value, this.formatDateOptionLabel(match.utc_date));
+      }
+    });
+
+    return Array.from(dateMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([value, label]) => ({ value, label }));
+  }
+
+  get matchdayOptions(): Array<{ value: string; label: string }> {
+    const options = new Map<string, string>();
+
+    [1, 2, 3].forEach(matchday => {
+      if (this.matches.some(match => match.stage === 'GROUP_STAGE' && match.matchday === matchday)) {
+        options.set(`MATCHDAY_${matchday}`, `Jornada ${matchday}`);
+      }
+    });
+
+    (['LAST_32', 'LAST_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'] as MatchStage[]).forEach(stage => {
+      if (this.matches.some(match => match.stage === stage)) {
+        options.set(stage, this.getStageLabel(stage));
+      }
+    });
+
+    return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
+  }
+
+  get groupOptions(): Array<{ value: string; label: string }> {
+    const groups = new Map<string, string>();
+
+    this.matches
+      .filter(match => !!match.group)
+      .forEach(match => {
+        if (match.group && !groups.has(match.group)) {
+          groups.set(match.group, this.formatGroup(match.group));
+        }
+      });
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([value, label]) => ({ value, label }));
+  }
+
+  get currentOptions(): Array<{ value: string; label: string }> {
+    if (this.selectedTab === 'DATE') {
+      return this.dateOptions;
+    }
+
+    if (this.selectedTab === 'GROUP') {
+      return this.groupOptions;
+    }
+
+    return this.matchdayOptions;
+  }
+
+  get currentOptionIndex(): number {
+    return this.currentOptions.findIndex(option => option.value === this.selectedOptionValue);
+  }
+
+  get hasPreviousOption(): boolean {
+    return this.currentOptionIndex > 0;
+  }
+
+  get hasNextOption(): boolean {
+    return this.currentOptionIndex >= 0 && this.currentOptionIndex < this.currentOptions.length - 1;
+  }
+
   get filteredMatches(): MatchWithTeams[] {
     return this.matches.filter(match => this.matchesFilter(match));
   }
@@ -273,16 +373,71 @@ export class PredictionsComponent implements OnInit {
     }));
   }
 
+  initializeFilters(): void {
+    const firstOption = this.currentOptions[0];
+    this.selectedOptionValue = firstOption?.value ?? '';
+  }
+
+  selectTab(tab: 'DATE' | 'MATCHDAY' | 'GROUP'): void {
+    if (this.selectedTab === tab) {
+      return;
+    }
+
+    this.selectedTab = tab;
+    const firstOption = this.currentOptions[0];
+    this.selectedOptionValue = firstOption?.value ?? '';
+  }
+
+  onSelectedOptionChange(value: string): void {
+    this.selectedOptionValue = value;
+  }
+
+  goToPreviousOption(): void {
+    if (!this.hasPreviousOption) {
+      return;
+    }
+
+    this.selectedOptionValue = this.currentOptions[this.currentOptionIndex - 1].value;
+  }
+
+  goToNextOption(): void {
+    if (!this.hasNextOption) {
+      return;
+    }
+
+    this.selectedOptionValue = this.currentOptions[this.currentOptionIndex + 1].value;
+  }
+
   private matchesFilter(match: MatchWithTeams): boolean {
-    if (this.selectedFilter.startsWith('JORNADA_')) {
-      const matchday = Number(this.selectedFilter.split('_').pop());
+    if (!this.selectedOptionValue) {
+      return true;
+    }
+
+    if (this.selectedTab === 'DATE') {
+      return this.getDateKey(match.utc_date) === this.selectedOptionValue;
+    }
+
+    if (this.selectedTab === 'GROUP') {
+      return match.group === this.selectedOptionValue;
+    }
+
+    if (this.selectedOptionValue.startsWith('MATCHDAY_')) {
+      const matchday = Number(this.selectedOptionValue.split('_').pop());
       return match.stage === 'GROUP_STAGE' && match.matchday === matchday;
     }
 
-    return match.stage === this.selectedFilter;
+    return match.stage === this.selectedOptionValue;
   }
 
   private getGroupKey(match: MatchWithTeams): string {
+    if (this.selectedTab === 'DATE') {
+      return this.formatDateGroupLabel(match.utc_date);
+    }
+
+    if (this.selectedTab === 'GROUP') {
+      return match.group ? this.formatGroup(match.group) : 'Sin grupo';
+    }
+
     if (match.stage === 'GROUP_STAGE') {
       return match.group ? this.formatGroup(match.group) : `Jornada ${match.matchday ?? '-'}`;
     }
@@ -306,6 +461,30 @@ export class PredictionsComponent implements OnInit {
 
   formatGroup(group: string): string {
     return group.replace('_', ' ').replace('GROUP', 'Grupo');
+  }
+
+  private getDateKey(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-CA');
+  }
+
+  private formatDateOptionLabel(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  }
+
+  private formatDateGroupLabel(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   }
 
   formatDate(dateString: string): string {
