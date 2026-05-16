@@ -289,6 +289,12 @@ export class PredictionsComponent implements OnInit {
       }
     });
 
+    this.getKnockoutDateKeys().forEach(value => {
+      if (!dateMap.has(value)) {
+        dateMap.set(value, this.formatDateOptionLabel(`${value}T12:00:00`));
+      }
+    });
+
     return Array.from(dateMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([value, label]) => ({ value, label }));
@@ -298,15 +304,11 @@ export class PredictionsComponent implements OnInit {
     const options = new Map<string, string>();
 
     [1, 2, 3].forEach(matchday => {
-      if (this.matches.some(match => match.stage === 'GROUP_STAGE' && match.matchday === matchday)) {
-        options.set(`MATCHDAY_${matchday}`, `Jornada ${matchday}`);
-      }
+      options.set(`MATCHDAY_${matchday}`, `Jornada ${matchday}`);
     });
 
     (['LAST_32', 'LAST_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'] as MatchStage[]).forEach(stage => {
-      if (this.matches.some(match => match.stage === stage)) {
-        options.set(stage, this.getStageLabel(stage));
-      }
+      options.set(stage, this.getStageLabel(stage));
     });
 
     return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
@@ -485,6 +487,28 @@ export class PredictionsComponent implements OnInit {
       month: 'long',
       year: 'numeric'
     });
+  }
+
+  private getKnockoutDateKeys(): string[] {
+    return [
+      '2026-06-28',
+      '2026-06-29',
+      '2026-06-30',
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+      '2026-07-04',
+      '2026-07-05',
+      '2026-07-06',
+      '2026-07-07',
+      '2026-07-09',
+      '2026-07-10',
+      '2026-07-11',
+      '2026-07-14',
+      '2026-07-15',
+      '2026-07-18',
+      '2026-07-19'
+    ];
   }
 
   formatDate(dateString: string): string {
