@@ -23,14 +23,25 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
         .order('utc_date', { ascending: true })
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams[];
+          return data as unknown as MatchWithTeams[];
         })
     );
   }
@@ -43,7 +54,18 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
@@ -51,7 +73,7 @@ export class MatchService {
         .order('utc_date', { ascending: true })
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams[];
+          return data as unknown as MatchWithTeams[];
         })
     );
   }
@@ -64,7 +86,18 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
@@ -72,7 +105,7 @@ export class MatchService {
         .order('utc_date', { ascending: true })
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams[];
+          return data as unknown as MatchWithTeams[];
         })
     );
   }
@@ -85,7 +118,18 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
@@ -93,7 +137,7 @@ export class MatchService {
         .single()
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams;
+          return data as unknown as MatchWithTeams;
         })
     );
   }
@@ -106,7 +150,18 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
@@ -114,7 +169,7 @@ export class MatchService {
         .order('utc_date', { ascending: true })
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams[];
+          return data as unknown as MatchWithTeams[];
         })
     );
   }
@@ -127,7 +182,18 @@ export class MatchService {
       this.supabaseService.client
         .from('matches')
         .select(`
-          *,
+          id,
+          utc_date,
+          status,
+          stage,
+          matchday,
+          group:group_name,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          venue,
+          is_locked,
           home_team:teams!matches_home_team_id_fkey(*),
           away_team:teams!matches_away_team_id_fkey(*)
         `)
@@ -135,7 +201,7 @@ export class MatchService {
         .order('utc_date', { ascending: false })
         .then(({ data, error }) => {
           if (error) throw error;
-          return data as MatchWithTeams[];
+          return data as unknown as MatchWithTeams[];
         })
     );
   }
@@ -145,6 +211,13 @@ export class MatchService {
    */
   syncMatches(): Observable<any> {
     return this.http.post(`${this.apiUrl}/sync/matches`, {});
+  }
+
+  /**
+   * Sincroniza únicamente los 72 partidos de fase de grupos del Mundial 2026
+   */
+  syncGroupStageMatches(): Observable<any> {
+    return this.http.post(`${this.apiUrl}/sync/group-stage-matches`, {});
   }
 
   /**

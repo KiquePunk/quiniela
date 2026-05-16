@@ -1,13 +1,21 @@
 import { Team } from './team.model';
 
 export type MatchStatus = 'SCHEDULED' | 'TIMED' | 'IN_PLAY' | 'PAUSED' | 'FINISHED' | 'SUSPENDED' | 'POSTPONED' | 'CANCELLED';
-export type MatchStage = 'GROUP_STAGE' | 'ROUND_OF_16' | 'QUARTER_FINALS' | 'SEMI_FINALS' | 'FINAL';
+export type MatchStage =
+  | 'GROUP_STAGE'
+  | 'LAST_32'
+  | 'LAST_16'
+  | 'QUARTER_FINALS'
+  | 'SEMI_FINALS'
+  | 'THIRD_PLACE'
+  | 'FINAL';
 
 export interface Match {
   id: number;
   utc_date: string;
   status: MatchStatus;
   stage: MatchStage;
+  matchday?: number;
   group?: string;
   home_team_id: number;
   away_team_id: number;

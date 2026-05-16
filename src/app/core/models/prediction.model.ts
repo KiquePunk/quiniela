@@ -14,6 +14,9 @@ export interface PredictionWithMatch extends Prediction {
     id: number;
     utc_date: string;
     status: string;
+    stage?: string;
+    matchday?: number;
+    group?: string;
     home_team: {
       name: string;
       crest: string;

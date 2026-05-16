@@ -30,6 +30,7 @@ CREATE TABLE public.matches (
   utc_date TIMESTAMP WITH TIME ZONE NOT NULL,
   status TEXT NOT NULL DEFAULT 'SCHEDULED',
   stage TEXT NOT NULL,
+  matchday INTEGER,
   group_name TEXT,
   home_team_id INTEGER REFERENCES public.teams(id) NOT NULL,
   away_team_id INTEGER REFERENCES public.teams(id) NOT NULL,

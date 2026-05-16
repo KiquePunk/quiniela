@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Supabase client
 const supabaseUrl = process.env.SUPABASE_URL || 'https://txxlwgpjqgffkexkyrnj.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4eGx3Z3BqcWdmZmtleGt5cm5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY5OTk5OTksImV4cCI6MjA1MjU3NTk5OX0.vIvB-rSgZru-VRbx1g0l5A_JwEpTOhU';
+const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_vIvB-rSgZru-VRbx1g0l5A_JwEpTOhU';
 const footballApiToken = process.env.FOOTBALL_API_TOKEN || '9747e3521f4e4d82bb417f465c606180';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -22,54 +22,55 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-// Sync matches from football-data.org
-app.post('/api/sync/matches', async (req, res) => {
-  try {
-    const response = await fetch('https://api.football-data.org/v4/competitions/2000/matches', {
-      headers: { 'X-Auth-Token': footballApiToken }
-    });
+// Shared football-data.org sync helpers
+async function fetchCompetitionMatches() {
+  const response = await fetch('https://api.football-data.org/v4/competitions/2000/matches', {
+    headers: { 'X-Auth-Token': footballApiToken }
+  });
 
-    if (!response.ok) {
-      throw new Error(`Football API error: ${response.statusText}`);
+  if (!response.ok) {
+    throw new Error(`Football API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.matches || [];
+}
+
+function buildTeamsFromMatches(matches) {
+  const teamsMap = new Map();
+
+  matches.forEach(match => {
+    if (match.homeTeam?.id && !teamsMap.has(match.homeTeam.id)) {
+      teamsMap.set(match.homeTeam.id, {
+        id: match.homeTeam.id,
+        name: match.homeTeam.name,
+        short_name: match.homeTeam.shortName,
+        tla: match.homeTeam.tla,
+        crest: match.homeTeam.crest,
+        group_name: match.group || null
+      });
     }
 
-    const data = await response.json();
-    const matches = data.matches;
+    if (match.awayTeam?.id && !teamsMap.has(match.awayTeam.id)) {
+      teamsMap.set(match.awayTeam.id, {
+        id: match.awayTeam.id,
+        name: match.awayTeam.name,
+        short_name: match.awayTeam.shortName,
+        tla: match.awayTeam.tla,
+        crest: match.awayTeam.crest,
+        group_name: match.group || null
+      });
+    }
+  });
 
-    // Sync teams
-    const teamsMap = new Map();
-    matches.forEach(match => {
-      if (!teamsMap.has(match.homeTeam.id)) {
-        teamsMap.set(match.homeTeam.id, {
-          id: match.homeTeam.id,
-          name: match.homeTeam.name,
-          short_name: match.homeTeam.shortName,
-          tla: match.homeTeam.tla,
-          crest: match.homeTeam.crest,
-          group_name: match.group || null
-        });
-      }
-      if (!teamsMap.has(match.awayTeam.id)) {
-        teamsMap.set(match.awayTeam.id, {
-          id: match.awayTeam.id,
-          name: match.awayTeam.name,
-          short_name: match.awayTeam.shortName,
-          tla: match.awayTeam.tla,
-          crest: match.awayTeam.crest,
-          group_name: match.group || null
-        });
-      }
-    });
+  return Array.from(teamsMap.values());
+}
 
-    const teams = Array.from(teamsMap.values());
-    const { error: teamsError } = await supabase
-      .from('teams')
-      .upsert(teams, { onConflict: 'id' });
+function buildMatchesPayload(matches, options = {}) {
+  const { includeMatchday = true } = options;
 
-    if (teamsError) throw teamsError;
-
-    // Sync matches
-    const matchesData = matches.map(match => ({
+  return matches.map(match => {
+    const payload = {
       id: match.id,
       utc_date: match.utcDate,
       status: match.status,
@@ -77,28 +78,125 @@ app.post('/api/sync/matches', async (req, res) => {
       group_name: match.group || null,
       home_team_id: match.homeTeam.id,
       away_team_id: match.awayTeam.id,
-      home_score: match.score.fullTime.home,
-      away_score: match.score.fullTime.away,
+      home_score: match.score?.fullTime?.home ?? null,
+      away_score: match.score?.fullTime?.away ?? null,
       venue: match.venue || null,
       is_locked: new Date(match.utcDate) <= new Date()
-    }));
+    };
 
-    const { error: matchesError } = await supabase
+    if (includeMatchday) {
+      payload.matchday = match.matchday || null;
+    }
+
+    return payload;
+  });
+}
+
+async function supportsMatchdayColumn() {
+  const { error } = await supabase
+    .from('matches')
+    .select('matchday')
+    .limit(1);
+
+  if (!error) {
+    return true;
+  }
+
+  if (error.code === 'PGRST204') {
+    return false;
+  }
+
+  throw error;
+}
+
+async function persistMatches(matches) {
+  const teams = buildTeamsFromMatches(matches);
+
+  const { error: teamsError } = await supabase
+    .from('teams')
+    .upsert(teams, { onConflict: 'id' });
+
+  if (teamsError) throw teamsError;
+
+  const includeMatchday = await supportsMatchdayColumn();
+  const matchesData = buildMatchesPayload(matches, { includeMatchday });
+
+  const { error: matchesError } = await supabase
+    .from('matches')
+    .upsert(matchesData, { onConflict: 'id' });
+
+  if (matchesError?.code === 'PGRST204' && includeMatchday) {
+    const fallbackMatchesData = buildMatchesPayload(matches, { includeMatchday: false });
+
+    const { error: fallbackError } = await supabase
       .from('matches')
-      .upsert(matchesData, { onConflict: 'id' });
+      .upsert(fallbackMatchesData, { onConflict: 'id' });
 
-    if (matchesError) throw matchesError;
+    if (fallbackError) throw fallbackError;
+
+    return {
+      teams,
+      matchesData: fallbackMatchesData,
+      includeMatchday: false
+    };
+  }
+
+  if (matchesError) throw matchesError;
+
+  return { teams, matchesData, includeMatchday };
+}
+
+// Sync matches from football-data.org
+app.post('/api/sync/matches', async (req, res) => {
+  try {
+    const matches = await fetchCompetitionMatches();
+    const { teams, matchesData, includeMatchday } = await persistMatches(matches);
 
     res.json({
       success: true,
       message: `Synced ${teams.length} teams and ${matchesData.length} matches`,
-      data: { teamsCount: teams.length, matchesCount: matchesData.length }
+      data: {
+        teamsCount: teams.length,
+        matchesCount: matchesData.length,
+        matchdayPersisted: includeMatchday
+      }
     });
   } catch (error) {
     console.error('Sync error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to sync matches'
+    });
+  }
+});
+
+// Sync only the 72 World Cup 2026 group-stage matches from a single competition request
+app.post('/api/sync/group-stage-matches', async (req, res) => {
+  try {
+    const matches = await fetchCompetitionMatches();
+    const groupStageMatches = matches.filter(match => match.stage === 'GROUP_STAGE');
+
+    if (groupStageMatches.length !== 72) {
+      throw new Error(`Expected 72 group-stage matches but received ${groupStageMatches.length}`);
+    }
+
+    const { teams, matchesData, includeMatchday } = await persistMatches(groupStageMatches);
+
+    res.json({
+      success: true,
+      message: `Synced ${matchesData.length} group-stage matches`,
+      data: {
+        teamsCount: teams.length,
+        matchesCount: matchesData.length,
+        stage: 'GROUP_STAGE',
+        matchdayPersisted: includeMatchday
+      }
+    });
+  } catch (error) {
+    console.error('Group stage sync error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to sync group-stage matches'
     });
   }
 });
@@ -162,61 +260,8 @@ app.post('/api/sync/results', async (req, res) => {
 // Cron job endpoint
 app.get('/api/cron/sync-matches', async (req, res) => {
   try {
-    const response = await fetch('https://api.football-data.org/v4/competitions/2000/matches', {
-      headers: { 'X-Auth-Token': footballApiToken }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Football API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const matches = data.matches;
-
-    // Sync teams
-    const teamsMap = new Map();
-    matches.forEach(match => {
-      if (!teamsMap.has(match.homeTeam.id)) {
-        teamsMap.set(match.homeTeam.id, {
-          id: match.homeTeam.id,
-          name: match.homeTeam.name,
-          short_name: match.homeTeam.shortName,
-          tla: match.homeTeam.tla,
-          crest: match.homeTeam.crest,
-          group_name: match.group || null
-        });
-      }
-      if (!teamsMap.has(match.awayTeam.id)) {
-        teamsMap.set(match.awayTeam.id, {
-          id: match.awayTeam.id,
-          name: match.awayTeam.name,
-          short_name: match.awayTeam.shortName,
-          tla: match.awayTeam.tla,
-          crest: match.awayTeam.crest,
-          group_name: match.group || null
-        });
-      }
-    });
-
-    const teams = Array.from(teamsMap.values());
-    await supabase.from('teams').upsert(teams, { onConflict: 'id' });
-
-    // Sync matches
-    const matchesData = matches.map(match => ({
-      id: match.id,
-      utc_date: match.utcDate,
-      status: match.status,
-      stage: match.stage,
-      group_name: match.group || null,
-      home_team_id: match.homeTeam.id,
-      away_team_id: match.awayTeam.id,
-      home_score: match.score.fullTime.home,
-      away_score: match.score.fullTime.away,
-      venue: match.venue || null,
-      is_locked: new Date(match.utcDate) <= new Date()
-    }));
-
-    await supabase.from('matches').upsert(matchesData, { onConflict: 'id' });
+    const matches = await fetchCompetitionMatches();
+    const { teams, matchesData } = await persistMatches(matches);
 
     // Update points for finished matches
     const finishedMatches = matches.filter(m => m.status === 'FINISHED');
