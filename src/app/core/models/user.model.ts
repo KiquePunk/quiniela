@@ -1,9 +1,19 @@
+export type UserRole = 'admin' | 'participant';
+
 export interface User {
   id: string;
   email: string;
   username: string;
   full_name: string;
   avatar_url?: string;
+  total_points?: number;
+  role: UserRole;
+  is_approved: boolean;
+  approved_at?: string;
+  approved_by?: string;
+  is_active: boolean;
+  deactivated_at?: string;
+  deactivated_by?: string;
   created_at: string;
   updated_at: string;
 }

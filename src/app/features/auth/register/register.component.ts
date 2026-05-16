@@ -176,10 +176,11 @@ export class RegisterComponent {
 
     this.authService.register(registerData).subscribe({
       next: () => {
-        this.successMessage = 'Cuenta creada exitosamente. Redirigiendo...';
+        this.loading = false;
+        this.successMessage = 'Cuenta creada exitosamente. Tu acceso quedará pendiente de autorización por un administrador.';
         setTimeout(() => {
-          this.router.navigate(['/dashboard']);
-        }, 2000);
+          this.router.navigate(['/login']);
+        }, 2500);
       },
       error: (error) => {
         this.loading = false;

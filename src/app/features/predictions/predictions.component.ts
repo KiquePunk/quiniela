@@ -23,6 +23,17 @@ import { MatchStage, MatchWithTeams } from '../../core/models/match.model';
       </header>
 
       <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        @if (profileLoaded && !isApprovedUser) {
+          <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-900">
+            <h2 class="text-lg font-semibold">{{ inactiveUser ? 'Tu cuenta está dada de baja' : 'Tu cuenta está pendiente de aprobación' }}</h2>
+            <p class="mt-1 text-sm">
+              {{ inactiveUser
+                ? 'No podrás seguir participando en la quiniela ni capturar pronósticos hasta que un administrador reactive tu cuenta.'
+                : 'Ya puedes entrar a la plataforma, pero no podrás participar en la quiniela hasta que un administrador autorice tu registro.' }}
+            </p>
+          </div>
+        }
+
         @if (loading) {
           <div class="text-center py-12">
             <p class="text-gray-500">Cargando partidos...</p>
@@ -127,7 +138,7 @@ import { MatchStage, MatchWithTeams } from '../../core/models/match.model';
                             </div>
 
                             <div class="text-center">
-                              @if (canPredict(match)) {
+                              @if (canPredict(match) && isApprovedUser) {
                                 <div class="flex justify-center gap-4">
                                   <input
                                     type="number"
@@ -195,6 +206,9 @@ export class PredictionsComponent implements OnInit {
   saving: Record<number, boolean> = {};
   loading = true;
   currentUserId: string = '';
+  isApprovedUser = false;
+  inactiveUser = false;
+  profileLoaded = false;
   selectedTab: 'DATE' | 'MATCHDAY' | 'GROUP' = 'MATCHDAY';
   selectedOptionValue = '';
 
@@ -214,7 +228,18 @@ export class PredictionsComponent implements OnInit {
     this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.currentUserId = user.id;
-        this.loadMatches();
+        this.authService.loadCurrentUserProfile().subscribe({
+          next: (profile) => {
+            this.inactiveUser = profile?.is_active === false;
+            this.isApprovedUser = !!profile?.is_approved && !!profile?.is_active;
+            this.profileLoaded = true;
+            this.loadMatches();
+          },
+          error: () => {
+            this.profileLoaded = true;
+            this.loadMatches();
+          }
+        });
       }
     });
   }
@@ -258,6 +283,13 @@ export class PredictionsComponent implements OnInit {
   }
 
   savePrediction(matchId: number): void {
+    if (!this.isApprovedUser) {
+      alert(this.inactiveUser
+        ? 'Tu cuenta está dada de baja y no puede capturar pronósticos.'
+        : 'Tu cuenta aún no ha sido autorizada para participar en la quiniela.');
+      return;
+    }
+
     this.saving[matchId] = true;
     const pred = this.predictions[matchId];
 

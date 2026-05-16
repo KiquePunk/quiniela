@@ -6,6 +6,8 @@ import { MatchService } from '../../core/services/match.service';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
 import { MatchWithTeams } from '../../core/models/match.model';
 import { LeaderboardEntry } from '../../core/models/prediction.model';
+import { User } from '../../core/models/user.model';
+import { AdminService } from '../../core/services/admin.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -56,12 +58,70 @@ import { LeaderboardEntry } from '../../core/models/prediction.model';
             >
               Tabla de Posiciones
             </a>
+              @if (currentUserProfile?.role === 'admin') {
+                <a
+                  routerLink="/admin"
+                  routerLinkActive="border-blue-500 text-blue-600"
+                  class="px-3 py-4 border-b-2 border-transparent text-gray-700 hover:text-blue-600 font-medium"
+                >
+                  Administración
+                </a>
+              }
+            </div>
           </div>
-        </div>
       </nav>
 
       <!-- Main Content -->
-      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <section class="bg-white rounded-lg shadow-md p-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-3">
+              <h2 class="text-2xl font-bold text-gray-900">Acerca de la quiniela</h2>
+              <ul class="space-y-2 text-sm text-gray-700">
+                <li>• Esta es una quiniela del Team de Finanzas y OB con el propósito de divertirnos durante el Mundial.</li>
+                <li>• El costo de la quiniela es de $1000 pesos por participante.</li>
+                <li>• Los usuarios se pueden registrar pero no podrán participar en la quiniela hasta que un administrador autorice su participación.</li>
+                <li>• Los usuarios pueden predecir marcadores antes de que inicien los partidos.</li>
+                <li>• Las predicciones se bloquean automáticamente cuando comienza un partido.</li>
+                <li>• Sincronización automática de equipos, partidos y resultados.</li>
+                <li>• Sistema automático que calcula puntos basado en predicciones vs resultados reales.</li>
+                <li>• Ranking en tiempo real de todos los participantes.</li>
+                <li>• Se puede descargar un CSV con los pronósticos de los participantes para transparencia.</li>
+              </ul>
+
+              <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <h3 class="text-lg font-semibold text-blue-900">Sistema de Puntuación</h3>
+                <ul class="mt-2 space-y-1 text-sm text-blue-800">
+                  <li>• 3 puntos por acertar el marcador exacto</li>
+                  <li>• 1 punto por acertar el resultado (ganador o empate)</li>
+                  <li>• 0 puntos si no aciertas</li>
+                </ul>
+              </div>
+
+              <p class="text-sm text-gray-700">
+                El ganador será el que al final del mundial haya acumulado la mayor cantidad de puntos. En caso de empate la quiniela acumulada será divida entre los primeros lugares.
+              </p>
+            </div>
+
+            <div class="lg:max-w-xs lg:w-full">
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <h3 class="text-lg font-semibold text-emerald-900">Exportar pronósticos</h3>
+                <p class="mt-2 text-sm text-emerald-800">
+                  Descarga un archivo CSV con los pronósticos de todos los participantes para fines de transparencia.
+                </p>
+                <button
+                  type="button"
+                  (click)="downloadCsv()"
+                  [disabled]="downloadingCsv"
+                  class="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-white font-semibold hover:bg-emerald-700 disabled:bg-gray-400"
+                >
+                  {{ downloadingCsv ? 'Generando CSV...' : 'Descargar CSV' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Próximos Partidos -->
           <div class="lg:col-span-2">
@@ -161,20 +221,36 @@ import { LeaderboardEntry } from '../../core/models/prediction.model';
 })
 export class DashboardComponent implements OnInit {
   currentUser: any = null;
+  currentUserProfile: User | null = null;
   upcomingMatches: MatchWithTeams[] = [];
   topUsers: LeaderboardEntry[] = [];
   loadingMatches = true;
   loadingLeaderboard = true;
+  downloadingCsv = false;
 
   constructor(
     private authService: AuthService,
     private matchService: MatchService,
-    private leaderboardService: LeaderboardService
+    private leaderboardService: LeaderboardService,
+    private adminService: AdminService
   ) {}
 
   ngOnInit(): void {
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
+
+      if (user) {
+        this.authService.loadCurrentUserProfile().subscribe({
+          next: (profile) => {
+            this.currentUserProfile = profile;
+          },
+          error: (error) => {
+            console.error('Error loading current user profile:', error);
+          }
+        });
+      } else {
+        this.currentUserProfile = null;
+      }
     });
 
     this.loadUpcomingMatches();
@@ -214,6 +290,21 @@ export class DashboardComponent implements OnInit {
       month: 'short',
       hour: '2-digit',
       minute: '2-digit'
+    });
+  }
+
+  downloadCsv(): void {
+    this.downloadingCsv = true;
+
+    this.adminService.downloadPredictionsCsv().subscribe({
+      next: () => {
+        this.downloadingCsv = false;
+      },
+      error: (error) => {
+        console.error('Error downloading CSV:', error);
+        this.downloadingCsv = false;
+        alert('No fue posible descargar el CSV.');
+      }
     });
   }
 
