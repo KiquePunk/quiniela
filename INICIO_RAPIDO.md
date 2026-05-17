@@ -7,7 +7,10 @@
 pnpm install
 cd backend && pnpm install && cd ..
 
-# 2. Ejecutar aplicación (frontend + backend)
+# 2. Aplicar migraciones en Supabase
+supabase db push
+
+# 3. Ejecutar aplicación (frontend + backend)
 pnpm run dev:all
 ```
 
@@ -25,25 +28,40 @@ pnpm install
 cd ..
 ```
 
-### 2️⃣ Configurar Supabase (Solo Primera Vez)
+### 2️⃣ Configurar Supabase
 
-Ve a: https://supabase.com/dashboard/project/txxlwgpjqgffkexkyrnj
+Ve a tu proyecto en Supabase y aplica las migraciones del directorio [`supabase/migrations`](supabase/migrations).
 
-1. **SQL Editor** → Nueva query
-2. Ejecuta `supabase/migrations/001_initial_schema.sql`
-3. Ejecuta `supabase/migrations/002_seed_data.sql`
+Si usas CLI:
 
-### 3️⃣ Crear Usuario de Prueba (Solo Primera Vez)
+```powershell
+supabase login
+supabase link --project-ref txxlwgpjqgffkexkyrnj
+supabase db push
+```
+
+Migraciones importantes recientes:
+
+- [`004_user_roles_and_predictions_export.sql`](supabase/migrations/004_user_roles_and_predictions_export.sql)
+- [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql)
+- [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql)
+- [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql)
+- [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
+
+### 3️⃣ Crear Usuario Administrador
 
 En Supabase Dashboard:
+
 - **Authentication** → **Users** → **Add user**
 - Email: `admin@quiniela.com`
 - Password: `Admin123!`
 
+Luego aplica la migración [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql) para promoverlo como administrador.
+
 ### 4️⃣ Ejecutar Aplicación
 
 ```powershell
-# Opción A: Todo junto (recomendado)
+# Opción A: Todo junto
 pnpm run dev:all
 
 # Opción B: Por separado
@@ -54,13 +72,24 @@ pnpm run dev
 pnpm run backend
 ```
 
-### 5️⃣ Sincronizar Datos del Mundial
+### 5️⃣ Sincronizar Datos del Mundial 2026
 
 Una vez que los servidores estén corriendo:
 
 ```powershell
+# Sincronización general
 curl -X POST http://localhost:3000/api/sync/matches
+
+# Sincronización específica de fase de grupos 2026 (72 partidos)
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
+
+# Cron manual completo
+curl http://localhost:3000/api/cron/sync-matches
 ```
+
+El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta sincronización completa, recalcula puntos de partidos finalizados y bloquea partidos iniciados.
+
+Además, el backend ya programa esta tarea automáticamente cada hora mediante [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
 
 ## 🌐 URLs
 
@@ -70,58 +99,67 @@ curl -X POST http://localhost:3000/api/sync/matches
 
 ## 🔑 Credenciales de Prueba
 
-- **Email**: admin@quiniela.com
-- **Password**: Admin123!
+- **Admin**
+  - Email: `admin@quiniela.com`
+  - Password: `Admin123!`
 
 ## 🎯 Comandos Útiles
 
 ```powershell
 # Desarrollo
-pnpm run dev              # Solo frontend
-pnpm run backend          # Solo backend
-pnpm run dev:all          # Frontend + Backend
+pnpm run dev
+pnpm run backend
+pnpm run dev:all
 
 # Build
-pnpm run build            # Construir para producción
+pnpm run build
+
+# Supabase
+supabase db push
+supabase db reset
 
 # Sincronización
-curl -X POST http://localhost:3000/api/sync/matches   # Sincronizar partidos
-curl -X POST http://localhost:3000/api/sync/results   # Actualizar resultados
+curl -X POST http://localhost:3000/api/sync/matches
+curl -X POST http://localhost:3000/api/sync/results
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
+curl http://localhost:3000/api/cron/sync-matches
 ```
 
-## 🐛 Solución Rápida de Problemas
+## 👥 Gestión de participantes
 
-### Error de compilación TypeScript
+Desde el módulo `Administración` un usuario admin puede:
 
-```powershell
-Remove-Item -Recurse -Force node_modules, pnpm-lock.yaml
-pnpm install
-```
+- autorizar participantes
+- dar de baja lógicamente
+- reactivar participantes
 
-### Backend no inicia
+Reglas importantes:
 
-```powershell
-cd backend
-node server.js
-```
+- un usuario pendiente no puede pronosticar
+- un usuario dado de baja no puede pronosticar
+- un usuario dado de baja no aparece en la tabla de posiciones
+- cualquier usuario autenticado puede descargar el CSV de pronósticos desde el dashboard
 
-### Frontend no abre
+## 🗑️ Borrado físico de participantes
 
-```powershell
-pnpm run dev
-# Luego abre manualmente: http://localhost:4200
+Si además necesitas eliminar completamente a un participante de la base de datos, usa las funciones de [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql):
+
+```sql
+SELECT public.delete_participant_by_email('usuario@dominio.com');
+SELECT public.delete_participant_by_id('00000000-0000-0000-0000-000000000000');
 ```
 
 ## ✅ Verificación
 
 1. ✅ Frontend en http://localhost:4200
-2. ✅ Backend muestra: "Backend running on port 3000"
-3. ✅ Login funciona con admin@quiniela.com
-4. ✅ Dashboard muestra partidos
-5. ✅ Puedes hacer predicciones
+2. ✅ Backend en http://localhost:3000
+3. ✅ Login funciona con `admin@quiniela.com`
+4. ✅ Dashboard muestra partidos y botón de CSV
+5. ✅ Administración permite autorizar, dar de baja y reactivar
+6. ✅ Mis Predicciones bloquea a usuarios pendientes o inactivos
 
 ---
 
 **Made with Bob** 🤖
 
-Para más detalles, consulta `PASOS_FINALES.md`
+Para más detalles, consulta [`README.md`](README.md) y [`SETUP.md`](SETUP.md).

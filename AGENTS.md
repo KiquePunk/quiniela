@@ -4,14 +4,14 @@ Este documento proporciona contexto y guías para agentes de IA que trabajen en 
 
 ## 📋 Resumen del Proyecto
 
-**Quiniela Mundial** es una aplicación web full-stack para gestionar predicciones de partidos del Mundial de Fútbol. Los usuarios pueden registrarse, hacer predicciones de marcadores, y competir en un ranking basado en la precisión de sus predicciones.
+**Quiniela Mundial** es una aplicación web full-stack para gestionar predicciones de partidos del Mundial de Fútbol 2026. Los usuarios pueden registrarse, pero sólo pueden participar cuando un administrador autoriza su cuenta. También existe baja lógica de participantes, exportación pública de pronósticos en CSV y sincronización automática de partidos/resultados.
 
 ## 🏗️ Arquitectura
 
 ### Stack Tecnológico
 
 - **Frontend**: Angular 19 (Standalone Components)
-- **Backend**: Analog.js (API Routes en el mismo proyecto)
+- **Backend**: Node.js + Express
 - **Base de Datos**: Supabase (PostgreSQL con RLS)
 - **Autenticación**: Supabase Auth
 - **Estilos**: Tailwind CSS
@@ -19,168 +19,205 @@ Este documento proporciona contexto y guías para agentes de IA que trabajen en 
 
 ### Estructura de Carpetas
 
-```
+```text
 src/app/
-├── core/                    # Funcionalidad central
+├── core/
 │   ├── guards/             # AuthGuard para rutas protegidas
 │   ├── interceptors/       # HTTP interceptor para tokens
 │   ├── models/             # Interfaces TypeScript
 │   └── services/           # Servicios de negocio
-├── features/               # Módulos de características
-│   ├── auth/              # Login y registro
-│   ├── dashboard/         # Vista principal
-│   ├── predictions/       # Gestión de predicciones
-│   └── leaderboard/       # Tabla de posiciones
-└── environments/          # Configuración
+├── features/
+│   ├── auth/               # Login y registro
+│   ├── dashboard/          # Vista principal + Acerca de + CSV
+│   ├── predictions/        # Gestión de predicciones
+│   ├── leaderboard/        # Tabla de posiciones
+│   └── admin/              # Administración de participantes
+└── environments/           # Configuración
 
-server/routes/api/         # Backend con Analog.js
-├── sync/                  # Endpoints de sincronización
-└── cron/                  # Tareas programadas
+backend/
+├── server.js               # API Express y sincronización
+└── .env.example           # Variables de entorno de backend
 
 supabase/
-├── migrations/            # Esquema de base de datos
-└── config.toml           # Configuración local
+├── migrations/            # Esquema, políticas y scripts SQL
+└── config.toml            # Configuración local
 ```
 
 ## 🔑 Conceptos Clave
 
-### 1. Analog.js
+### 1. Angular + Standalone Components
 
-Analog.js permite crear API routes en el mismo proyecto Angular:
-- Archivos en `server/routes/` se convierten en endpoints
-- `*.get.ts` → GET endpoint
-- `*.post.ts` → POST endpoint
-- Usa `defineEventHandler` de h3
+- Cada pantalla principal vive en `features/`
+- La app usa componentes standalone
+- El módulo `Mis Predicciones` ya soporta filtros por fecha, jornada y grupo/fase
 
 ### 2. Supabase
 
-- **Auth**: Manejo de usuarios y sesiones
-- **Database**: PostgreSQL con Row Level Security
-- **Realtime**: Actualizaciones en tiempo real (no implementado aún)
+- **Auth**: manejo de usuarios y sesiones
+- **Database**: PostgreSQL con RLS
+- **RLS**: parte central del control de acceso de la app
+- **auth.users** y **public.users** están relacionados mediante trigger
 
-### 3. Sistema de Puntuación
+### 3. Roles y estatus de usuario
 
-```typescript
-// Lógica de puntos
-if (predicción === resultado_real) return 3;  // Marcador exacto
-if (ganador_predicho === ganador_real) return 1;  // Resultado correcto
-return 0;  // Sin puntos
-```
+El modelo de usuario soporta:
+
+- `role`: `admin` o `participant`
+- `is_approved`: indica si puede participar
+- `is_active`: indica si está dado de alta o de baja lógica
+
+Reglas:
+
+- usuario no aprobado → no puede pronosticar
+- usuario inactivo → no puede pronosticar y no aparece en ranking
+- administrador → puede gestionar participantes
+
+### 4. Exportación de pronósticos
+
+Existe una vista `predictions_export` y un flujo de exportación CSV accesible para cualquier usuario autenticado desde dashboard.
+
+### 5. Mundial 2026
+
+La app soporta sincronización del Mundial 2026, incluyendo:
+
+- fase de grupos de **72 partidos**
+- `matchday`
+- grupos
+- fases eliminatorias:
+  - `LAST_32`
+  - `LAST_16`
+  - `QUARTER_FINALS`
+  - `SEMI_FINALS`
+  - `THIRD_PLACE`
+  - `FINAL`
 
 ## 🎯 Flujos Principales
 
-### Flujo de Autenticación
+### Flujo de Autenticación y Autorización
 
-1. Usuario se registra → `AuthService.register()`
+1. Usuario se registra → [`AuthService.register()`](src/app/core/services/auth.service.ts:49)
 2. Supabase crea usuario en `auth.users`
 3. Trigger `handle_new_user()` crea perfil en `public.users`
-4. Usuario inicia sesión → Token JWT almacenado
-5. `authInterceptor` agrega token a peticiones API
+4. El usuario puede iniciar sesión
+5. Mientras no esté autorizado, no puede participar
+6. Un admin autoriza al usuario desde `Administración`
+
+### Flujo de Baja Lógica
+
+1. Admin entra a `Administración`
+2. Marca al usuario como inactivo
+3. El usuario:
+   - deja de aparecer en `leaderboard`
+   - no puede seguir creando o editando predicciones
+4. El admin puede reactivarlo más adelante
 
 ### Flujo de Predicciones
 
-1. Usuario ve partidos próximos
-2. Ingresa marcador predicho
-3. `PredictionService.savePrediction()` guarda en BD
-4. Sistema verifica `is_locked` y `utc_date`
-5. Cuando partido finaliza, cron actualiza resultados
-6. `update_predictions_points()` calcula puntos
-7. Vista `leaderboard` muestra ranking actualizado
+1. Usuario autorizado y activo entra a `Mis Predicciones`
+2. Filtra por fecha, jornada o grupo
+3. Captura marcadores
+4. [`PredictionService.savePrediction()`](src/app/core/services/prediction.service.ts:line) guarda en BD
+5. La base y la UI impiden guardar si:
+   - no está aprobado
+   - está inactivo
+   - el partido ya comenzó
+6. Cuando el partido finaliza, se recalculan puntos
+7. `leaderboard` muestra ranking actualizado
 
 ### Flujo de Sincronización
 
-1. Cron job llama `/api/cron/sync-matches`
-2. Endpoint consulta football-data.org API
-3. Actualiza equipos y partidos en Supabase
-4. Para partidos finalizados, calcula puntos
-5. Bloquea partidos que ya comenzaron
+1. Endpoint llama a `football-data.org`
+2. Se insertan/actualizan equipos y partidos
+3. La fase de grupos del Mundial 2026 puede sincronizarse con una sola llamada
+4. Para partidos finalizados, se calculan puntos
+5. Los partidos se bloquean cuando ya comenzaron
+6. El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta el ciclo completo de sincronización
+7. El backend programa la ejecución automática cada hora con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299)
 
 ## 🛠️ Tareas Comunes
 
-### Agregar un Nuevo Servicio
+### Autorizar o administrar participantes
 
-```typescript
-// src/app/core/services/nuevo.service.ts
-import { Injectable } from '@angular/core';
-import { SupabaseService } from './supabase.service';
+La lógica principal vive en:
 
-@Injectable({ providedIn: 'root' })
-export class NuevoService {
-  constructor(private supabase: SupabaseService) {}
-  
-  // Métodos del servicio
-}
-```
+- [`AdminComponent`](src/app/features/admin/admin.component.ts)
+- [`AdminService`](src/app/core/services/admin.service.ts)
+- migración [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
 
-### Crear un Nuevo Endpoint API
+### Sincronizar fase de grupos 2026
 
-```typescript
-// server/routes/api/nuevo-endpoint.post.ts
-import { defineEventHandler } from 'h3';
-import { createClient } from '@supabase/supabase-js';
+Usar el endpoint backend correspondiente. La lógica está centralizada en [`server.js`](backend/server.js).
 
-export default defineEventHandler(async (event) => {
-  // Lógica del endpoint
-  return { success: true, data: {} };
-});
-```
+### Ejecutar sincronización completa por cron
 
-### Agregar una Nueva Tabla
+Para ejecutar manualmente el flujo completo de sincronización usar [`GET /api/cron/sync-matches`](backend/server.js:261). Ese endpoint también es consumido internamente por el cron horario definido con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
 
-1. Crear migración en `supabase/migrations/`
-2. Definir tabla con RLS habilitado
-3. Crear políticas de seguridad
-4. Aplicar con `supabase db push`
+### Crear o ajustar políticas RLS
 
-### Crear un Nuevo Componente
+Revisar primero:
 
-```bash
-# Componente standalone
-ng generate component features/nueva-feature --standalone
-```
+- [`001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql)
+- [`004_user_roles_and_predictions_export.sql`](supabase/migrations/004_user_roles_and_predictions_export.sql)
+- [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql)
+- [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
+
+### Borrar físicamente un participante
+
+Usar las funciones de [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql):
+
+- [`public.delete_participant_by_id()`](supabase/migrations/007_delete_participant_script.sql:10)
+- [`public.delete_participant_by_email()`](supabase/migrations/007_delete_participant_script.sql:33)
+
+Estas funciones:
+
+- eliminan desde `auth.users`
+- borran por cascada `public.users` y `public.predictions`
+- bloquean el borrado de admins
 
 ## 🔒 Seguridad
 
 ### Row Level Security (RLS)
 
-Todas las tablas tienen RLS habilitado:
+Puntos importantes:
 
-```sql
--- Ejemplo de política
-CREATE POLICY "Users can view all profiles"
-  ON public.users FOR SELECT
-  USING (true);
-
-CREATE POLICY "Users can update own profile"
-  ON public.users FOR UPDATE
-  USING (auth.uid() = id);
-```
+- `public.users` permite lectura global
+- autoedición del propio perfil
+- admins pueden actualizar participantes
+- sólo usuarios aprobados y activos pueden modificar predicciones
 
 ### Validaciones
 
-- **Frontend**: Validación de formularios con Reactive Forms
-- **Backend**: Validación en endpoints API
-- **Base de Datos**: Constraints y triggers
+- **Frontend**: bloqueo de UI y mensajes al usuario
+- **Backend**: sincronización y persistencia de datos
+- **Base de Datos**: RLS, constraints, vistas y triggers
 
 ## 📊 Modelos de Datos
 
 ### User
+
 ```typescript
 interface User {
   id: string;
   email: string;
   username: string;
   full_name: string;
-  total_points: number;
+  total_points?: number;
+  role: 'admin' | 'participant';
+  is_approved: boolean;
+  is_active: boolean;
 }
 ```
 
 ### Match
+
 ```typescript
 interface Match {
   id: number;
   utc_date: string;
   status: MatchStatus;
+  stage: string;
+  matchday?: number;
+  group_name?: string;
   home_team_id: number;
   away_team_id: number;
   home_score?: number;
@@ -190,6 +227,7 @@ interface Match {
 ```
 
 ### Prediction
+
 ```typescript
 interface Prediction {
   id: string;
@@ -203,49 +241,35 @@ interface Prediction {
 
 ## 🐛 Debugging
 
-### Logs Útiles
+### Problemas comunes recientes
 
-```typescript
-// En servicios
-console.log('Service data:', data);
-
-// En componentes
-console.log('Component state:', this.state);
-
-// En endpoints
-console.log('API request:', event);
-```
+- Error al recrear `predictions_export` → en este proyecto se resuelve eliminando la vista antes de recrearla en [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql)
+- Error al autorizar/dar de baja usuarios → verificar la política agregada en [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
 
 ### Herramientas
 
-- **Angular DevTools**: Inspección de componentes
-- **Supabase Dashboard**: Ver datos en tiempo real
-- **Network Tab**: Monitorear peticiones HTTP
+- Supabase Dashboard
+- Network Tab del navegador
+- consola del backend
+- Angular DevTools
 
 ## 🧪 Testing
 
-### Estructura de Tests
+Al menos validar manualmente:
 
-```typescript
-describe('ServiceName', () => {
-  let service: ServiceName;
-  
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(ServiceName);
-  });
-  
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-});
-```
+- registro de usuario
+- autorización por admin
+- baja lógica y reactivación
+- bloqueo de predicciones para usuarios no autorizados/inactivos
+- descarga de CSV
+- sincronización de grupos 2026
 
 ## 🚀 Despliegue
 
 ### Variables de Entorno
 
-Configurar en el hosting:
+Configurar:
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_KEY`
 - `FOOTBALL_API_TOKEN`
@@ -254,94 +278,33 @@ Configurar en el hosting:
 
 ```bash
 pnpm build
-# Output en dist/analog/
 ```
 
 ## 📝 Convenciones de Código
 
 ### Nombres
 
-- **Componentes**: PascalCase (`DashboardComponent`)
-- **Servicios**: PascalCase + Service (`AuthService`)
-- **Interfaces**: PascalCase (`User`, `Match`)
-- **Variables**: camelCase (`currentUser`)
-- **Constantes**: UPPER_SNAKE_CASE (`API_URL`)
+- **Componentes**: PascalCase
+- **Servicios**: PascalCase + Service
+- **Interfaces**: PascalCase
+- **Variables**: camelCase
+- **Constantes**: UPPER_SNAKE_CASE
 
-### Estructura de Archivos
+### Recomendaciones para agentes
 
-- Un componente por archivo
-- Servicios en `core/services/`
-- Modelos en `core/models/`
-- Features agrupadas en carpetas
-
-### Imports
-
-```typescript
-// Angular core
-import { Component } from '@angular/core';
-
-// Angular modules
-import { CommonModule } from '@angular/common';
-
-// Third party
-import { createClient } from '@supabase/supabase-js';
-
-// App imports
-import { AuthService } from './services/auth.service';
-```
-
-## 🔄 Flujo de Trabajo Git
-
-```bash
-# Crear rama para feature
-git checkout -b feature/nueva-funcionalidad
-
-# Commits descriptivos
-git commit -m "feat: agregar filtro de partidos por grupo"
-
-# Push y PR
-git push origin feature/nueva-funcionalidad
-```
+1. Mantén consistencia con las migraciones existentes
+2. Si cambias permisos, revisa siempre RLS
+3. Si agregas columnas a vistas existentes, considera `DROP VIEW IF EXISTS` antes de recrearlas
+4. Si agregas cambios funcionales, actualiza [`README.md`](README.md) y los `.md` relevantes
+5. Antes de modificar administración o predicciones, revisa interacción entre UI, servicio y políticas SQL
 
 ## 📚 Recursos Adicionales
 
 - [Angular Style Guide](https://angular.io/guide/styleguide)
-- [Analog.js Docs](https://analogjs.org/docs)
 - [Supabase Docs](https://supabase.com/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
-
-## 🤝 Contribuciones
-
-Al trabajar en este proyecto:
-
-1. **Mantén la consistencia**: Sigue los patrones existentes
-2. **Documenta cambios**: Actualiza README y AGENTS.md
-3. **Prueba localmente**: Verifica que todo funcione antes de commit
-4. **RLS siempre**: Nunca desactives Row Level Security
-5. **Tipos estrictos**: Usa TypeScript correctamente
-
-## ⚠️ Consideraciones Importantes
-
-### Performance
-
-- Usa `trackBy` en `@for` loops
-- Implementa lazy loading para rutas
-- Optimiza queries de Supabase con `.select()`
-
-### Seguridad
-
-- Nunca expongas tokens en el código
-- Valida datos en frontend Y backend
-- Usa políticas RLS restrictivas por defecto
-
-### UX
-
-- Muestra estados de carga
-- Maneja errores gracefully
-- Proporciona feedback al usuario
+- [football-data.org Docs](https://www.football-data.org/documentation/quickstart)
 
 ---
 
 **Made with Bob** 🤖
-
-Este documento debe actualizarse conforme el proyecto evoluciona.

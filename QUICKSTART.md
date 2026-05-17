@@ -1,130 +1,132 @@
 # ⚡ Inicio Rápido - Quiniela Mundial
 
-Guía ultra-rápida para poner en marcha la aplicación en 5 minutos.
+Guía ultra-rápida para poner en marcha la aplicación con los cambios más recientes de administración, autorización, baja lógica y sincronización del Mundial 2026.
 
 ## 🚀 Comandos Esenciales
 
 ```bash
 # 1. Instalar dependencias
 pnpm install
+cd backend && pnpm install && cd ..
 
-# 2. Vincular a Supabase (si usas el proyecto existente)
+# 2. Aplicar migraciones
 supabase login
 supabase link --project-ref txxlwgpjqgffkexkyrnj
 supabase db push
 
 # 3. Iniciar aplicación
-pnpm dev
-
-# 4. En otra terminal, sincronizar datos del Mundial
-curl -X POST http://localhost:5173/api/sync/matches
+pnpm run dev:all
 ```
 
 ## 🌐 URLs Importantes
 
-- **Aplicación**: http://localhost:5173
+- **Frontend**: http://localhost:4200
+- **Backend**: http://localhost:3000
 - **Supabase Dashboard**: https://supabase.com/dashboard/project/txxlwgpjqgffkexkyrnj
 - **Football API**: https://www.football-data.org/
 
-## 👤 Usuarios de Prueba
+## 👤 Usuario administrador recomendado
 
-Crear en Supabase Dashboard o registrarse en la app:
+Crear en Supabase Auth o desde la app:
 
 | Email | Password | Username |
 |-------|----------|----------|
 | admin@quiniela.com | Admin123! | admin |
-| juan.perez@example.com | User123! | juanperez |
+
+Luego aplicar la migración [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql).
 
 ## 📋 Checklist de Verificación
 
-- [ ] Dependencias instaladas (`pnpm install`)
-- [ ] Supabase vinculado y migraciones aplicadas
-- [ ] Aplicación corriendo en http://localhost:5173
-- [ ] Datos sincronizados (equipos y partidos)
-- [ ] Usuario creado y login exitoso
-- [ ] Predicción guardada correctamente
+- [ ] Dependencias instaladas
+- [ ] Migraciones aplicadas con [`supabase db push`](QUICKSTART.md)
+- [ ] Aplicación corriendo en http://localhost:4200
+- [ ] Usuario administrador creado y promovido
+- [ ] Fase de grupos 2026 sincronizada
+- [ ] Usuario pendiente no puede pronosticar
+- [ ] Administración permite autorizar y dar de baja
+- [ ] CSV descarga correctamente desde dashboard
 
 ## 🔧 Comandos Útiles
 
 ```bash
 # Desarrollo
-pnpm dev                    # Iniciar servidor de desarrollo
+pnpm run dev
+pnpm run backend
+pnpm run dev:all
 
 # Build
-pnpm build                  # Construir para producción
-pnpm start                  # Ejecutar build de producción
-
-# Testing
-pnpm test                   # Ejecutar tests
+pnpm run build
 
 # Supabase
-supabase db push            # Aplicar migraciones
-supabase db reset           # Resetear base de datos
-supabase status             # Ver estado de servicios
+supabase db push
+supabase db reset
+supabase status
 
-# API Sync
-curl -X POST http://localhost:5173/api/sync/matches   # Sincronizar partidos
-curl -X POST http://localhost:5173/api/sync/results   # Actualizar resultados
-curl http://localhost:5173/api/cron/sync-matches      # Cron job completo
+# Sincronización
+curl -X POST http://localhost:3000/api/sync/matches
+curl -X POST http://localhost:3000/api/sync/results
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
+curl http://localhost:3000/api/cron/sync-matches
+curl http://localhost:3000/api/health
 ```
 
-## 🎯 Flujo de Uso Típico
+El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta sincronización completa, recalcula puntos para partidos finalizados y bloquea partidos iniciados. También se ejecuta automáticamente cada hora mediante [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
 
-1. **Registrarse/Login** → Crear cuenta o iniciar sesión
-2. **Dashboard** → Ver próximos partidos y ranking
-3. **Predicciones** → Hacer predicciones de marcadores
-4. **Esperar** → Los partidos finalizan y se actualizan resultados
-5. **Leaderboard** → Ver tu posición en el ranking
+## ⚽ Flujo de Uso Típico
+
+1. **Registro/Login** → Crear cuenta o iniciar sesión
+2. **Autorización** → Un admin autoriza al usuario
+3. **Dashboard** → Ver próximos partidos, ranking, sección `Acerca de` y descarga de CSV
+4. **Predicciones** → Hacer pronósticos filtrando por fecha, jornada o grupo
+5. **Resultados** → Se sincronizan resultados y se calculan puntos
+6. **Leaderboard** → Ver posición en ranking si la cuenta sigue activa
+
+## 👥 Administración
+
+El módulo `Administración` permite:
+
+- autorizar usuarios pendientes
+- dar de baja lógicamente a participantes
+- reactivar participantes dados de baja
+
+### Comportamiento esperado
+
+- **Pendiente**: no puede pronosticar
+- **Activo y aprobado**: puede pronosticar
+- **Baja lógica**: no puede pronosticar y no aparece en ranking
+
+## 🗑️ Eliminación física de participantes
+
+El proyecto incluye funciones SQL en [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql):
+
+```sql
+SELECT public.delete_participant_by_email('usuario@dominio.com');
+SELECT public.delete_participant_by_id('00000000-0000-0000-0000-000000000000');
+```
 
 ## 📁 Estructura Clave
 
-```
+```text
 src/app/
 ├── core/services/          # Lógica de negocio
-├── features/               # Componentes de páginas
-│   ├── auth/              # Login/Register
-│   ├── dashboard/         # Página principal
-│   ├── predictions/       # Hacer predicciones
-│   └── leaderboard/       # Tabla de posiciones
-└── environments/          # Configuración
+├── core/models/            # Tipos de usuario, partido y predicción
+├── features/auth/          # Login/Register
+├── features/dashboard/     # Dashboard + CSV + sección Acerca de
+├── features/predictions/   # Captura y filtros de predicciones
+├── features/leaderboard/   # Tabla de posiciones
+└── features/admin/         # Gestión administrativa
 
-server/routes/api/         # Backend API
-├── sync/                  # Sincronización manual
-└── cron/                  # Tareas automáticas
+backend/
+└── server.js               # API Express y sync con football-data.org
 
-supabase/migrations/       # Esquema de base de datos
-```
-
-## 🐛 Problemas Comunes
-
-### No se muestran partidos
-```bash
-curl -X POST http://localhost:5173/api/sync/matches
-```
-
-### Error de autenticación
-Verificar credenciales en `src/environments/environment.ts`
-
-### Puerto ocupado
-```bash
-# Cambiar puerto en vite.config.ts o matar proceso
-lsof -ti:5173 | xargs kill -9  # Mac/Linux
-netstat -ano | findstr :5173   # Windows
+supabase/migrations/        # Esquema, políticas RLS y scripts SQL
 ```
 
 ## 📚 Documentación Completa
 
-- **README.md** - Documentación general del proyecto
-- **SETUP.md** - Guía detallada de configuración
-- **AGENTS.md** - Guía para agentes de IA y desarrolladores
-
-## 🎉 ¡Listo para Jugar!
-
-Una vez completados los pasos, tu aplicación estará lista para:
-- ✅ Registrar usuarios
-- ✅ Hacer predicciones
-- ✅ Calcular puntos automáticamente
-- ✅ Mostrar ranking en tiempo real
+- [`README.md`](README.md)
+- [`SETUP.md`](SETUP.md)
+- [`AGENTS.md`](AGENTS.md)
 
 ---
 

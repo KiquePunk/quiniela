@@ -1,323 +1,228 @@
 # 🚀 Guía de Configuración Inicial - Quiniela Mundial
 
-Esta guía te llevará paso a paso para configurar y ejecutar la aplicación por primera vez.
+Esta guía describe la configuración completa del proyecto con los cambios recientes de autorización administrativa, baja lógica, exportación CSV pública y sincronización del Mundial 2026.
 
 ## ✅ Pre-requisitos
 
-Antes de comenzar, asegúrate de tener instalado:
+Asegúrate de tener instalado:
 
 - [Node.js](https://nodejs.org/) v18 o superior
-- [pnpm](https://pnpm.io/) - Gestor de paquetes
+- [pnpm](https://pnpm.io/)
 - [Git](https://git-scm.com/)
-- Cuenta en [Supabase](https://supabase.com) (gratuita)
-- API Token de [football-data.org](https://www.football-data.org/) (gratuita)
+- Cuenta en [Supabase](https://supabase.com)
+- API Token de [football-data.org](https://www.football-data.org/)
 
 ## 📦 Paso 1: Instalación de Dependencias
 
 ```bash
-# Instalar pnpm si no lo tienes
 npm install -g pnpm
-
-# Instalar dependencias del proyecto
 pnpm install
+
+cd backend
+pnpm install
+cd ..
 ```
 
 ## 🗄️ Paso 2: Configurar Supabase
 
-### Opción A: Usar el Proyecto Existente (Recomendado)
-
-El proyecto ya está configurado con las credenciales de Supabase:
+### Opción A: Usar el proyecto existente
 
 ```bash
-# Instalar Supabase CLI
 npm install -g supabase
-
-# Iniciar sesión en Supabase
 supabase login
-
-# Vincular al proyecto existente
 supabase link --project-ref txxlwgpjqgffkexkyrnj
-
-# Aplicar migraciones
 supabase db push
 ```
 
-### Opción B: Crear un Nuevo Proyecto
+### Opción B: Crear un nuevo proyecto
 
-Si prefieres usar tu propio proyecto de Supabase:
-
-1. Crear proyecto en [supabase.com](https://supabase.com)
-2. Obtener URL y anon key del proyecto
-3. Actualizar `src/environments/environment.ts`:
-
-```typescript
-export const environment = {
-  production: false,
-  supabase: {
-    url: 'TU_SUPABASE_URL',
-    key: 'TU_SUPABASE_ANON_KEY',
-  },
-  footballApi: {
-    url: 'https://api.football-data.org/v4',
-    token: '9747e3521f4e4d82bb417f465c606180',
-  },
-};
-```
-
-4. Aplicar migraciones:
+1. Crear proyecto en Supabase
+2. Obtener URL y anon key
+3. Actualizar [`environment.ts`](src/environments/environment.ts)
+4. Aplicar migraciones
 
 ```bash
 supabase link --project-ref TU_PROJECT_REF
 supabase db push
 ```
 
-## 👥 Paso 3: Crear Usuarios de Prueba
+## 📚 Migraciones importantes
 
-### Opción 1: Desde el Dashboard de Supabase
+Además del esquema base, este proyecto ya contempla:
 
-1. Ir a tu proyecto en [supabase.com](https://supabase.com)
-2. Navegar a **Authentication** > **Users**
-3. Click en **Add user** > **Create new user**
-4. Crear usuarios con estos datos:
+- [`001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql)
+- [`002_seed_data.sql`](supabase/migrations/002_seed_data.sql)
+- [`003_add_matchday_to_matches.sql`](supabase/migrations/003_add_matchday_to_matches.sql)
+- [`004_user_roles_and_predictions_export.sql`](supabase/migrations/004_user_roles_and_predictions_export.sql)
+- [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql)
+- [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql)
+- [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql)
+- [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
 
-**Usuario Admin:**
-- Email: `admin@quiniela.com`
-- Password: `Admin123!`
-- User Metadata:
-```json
-{
-  "username": "admin",
-  "full_name": "Administrador Quiniela"
-}
-```
+## 👥 Paso 3: Crear Usuario Administrador
 
-**Usuario de Prueba 1:**
-- Email: `juan.perez@example.com`
-- Password: `User123!`
-- User Metadata:
-```json
-{
-  "username": "juanperez",
-  "full_name": "Juan Pérez"
-}
-```
+### Desde Supabase Dashboard
 
-### Opción 2: Desde la Aplicación
-
-Simplemente ejecuta la aplicación y regístrate usando el formulario de registro.
-
-## ⚽ Paso 4: Sincronizar Datos del Mundial
-
-Una vez que la aplicación esté corriendo, sincroniza los datos:
-
-```bash
-# Iniciar la aplicación
-pnpm dev
-
-# En otra terminal, sincronizar equipos y partidos
-curl -X POST http://localhost:5173/api/sync/matches
-```
-
-Esto descargará:
-- Equipos participantes
-- Calendario de partidos
-- Grupos y fases
-
-## 🚀 Paso 5: Ejecutar la Aplicación
-
-```bash
-# Modo desarrollo
-pnpm dev
-```
-
-La aplicación estará disponible en: **http://localhost:5173**
-
-## 🔐 Paso 6: Iniciar Sesión
-
-1. Abre http://localhost:5173
-2. Serás redirigido a `/login`
-3. Usa las credenciales de los usuarios que creaste:
+1. Ir a **Authentication** > **Users**
+2. Crear el usuario:
    - Email: `admin@quiniela.com`
    - Password: `Admin123!`
+3. Aplicar la migración [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql)
 
-## ✨ Paso 7: Verificar Funcionalidades
-
-### Dashboard
-- Deberías ver los próximos partidos
-- El top 10 del ranking (inicialmente vacío)
-
-### Predicciones
-- Navega a "Mis Predicciones"
-- Ingresa marcadores para partidos próximos
-- Guarda tus predicciones
-
-### Tabla de Posiciones
-- Navega a "Tabla de Posiciones"
-- Verás el ranking de todos los usuarios
-
-## 🔄 Configurar Sincronización Automática (Opcional)
-
-Para mantener los datos actualizados automáticamente:
-
-### Opción 1: Cron Job Local
-
-Crear un cron job que ejecute:
+## 🚀 Paso 4: Ejecutar la Aplicación
 
 ```bash
-# Cada hora
-0 * * * * curl http://localhost:5173/api/cron/sync-matches
+# Frontend
+pnpm run dev
+
+# Backend
+pnpm run backend
 ```
 
-### Opción 2: Servicio de Cron Externo
-
-Usar servicios como:
-- [cron-job.org](https://cron-job.org)
-- [EasyCron](https://www.easycron.com)
-- [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)
-
-Configurar para llamar a: `https://tu-dominio.com/api/cron/sync-matches`
-
-## 🧪 Verificar la Instalación
-
-### 1. Verificar Base de Datos
+O ambos juntos:
 
 ```bash
-# Conectarse a Supabase
-supabase db remote
+pnpm run dev:all
+```
 
-# Verificar tablas
-\dt
+### URLs
 
-# Verificar usuarios
+- Frontend: `http://localhost:4200`
+- Backend: `http://localhost:3000`
+
+## ⚽ Paso 5: Sincronizar Datos del Mundial 2026
+
+### Sincronización general
+
+```bash
+curl -X POST http://localhost:3000/api/sync/matches
+curl -X POST http://localhost:3000/api/sync/results
+curl http://localhost:3000/api/cron/sync-matches
+```
+
+El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta una sincronización completa del backend, recalcula puntos de partidos finalizados y bloquea partidos ya iniciados.
+
+### Sincronización de fase de grupos
+
+La fase de grupos del Mundial 2026 tiene **72 partidos** y puede cargarse con:
+
+```bash
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
+```
+
+Esto persiste en Supabase:
+
+- equipos
+- partidos
+- grupos
+- jornadas
+- etapas eliminatorias soportadas por el modelo
+
+Además, el backend ejecuta esta tarea automáticamente cada hora con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
+
+## 🔐 Paso 6: Validar autorización y administración
+
+### Flujo esperado
+
+1. Un usuario se registra
+2. Queda pendiente de autorización
+3. Un administrador entra al módulo `Administración`
+4. Autoriza al participante
+5. El participante ya puede capturar pronósticos
+
+### Baja lógica
+
+Desde `Administración` el admin puede:
+
+- dar de baja lógicamente a un participante
+- reactivarlo después
+
+Un participante dado de baja:
+
+- no aparece en `leaderboard`
+- no puede guardar pronósticos
+- sigue existiendo en la base de datos
+
+## 🔄 Paso 6.1: Cron automático
+
+El backend define un cron interno usando [`cron.schedule('0 * * * *', ...)`](backend/server.js:299), es decir, una ejecución **cada hora en el minuto 0**. Ese cron invoca internamente [`/api/cron/sync-matches`](backend/server.js:261).
+
+## 🗑️ Paso 7: Eliminación física de un participante
+
+Si necesitas borrar completamente un participante de todas las tablas relacionadas, usa las funciones de [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql).
+
+```sql
+SELECT public.delete_participant_by_email('usuario@dominio.com');
+SELECT public.delete_participant_by_id('00000000-0000-0000-0000-000000000000');
+```
+
+Notas:
+
+- no permite eliminar administradores
+- borra desde `auth.users`
+- `public.users` y `public.predictions` se eliminan por cascada
+
+## 📤 Paso 8: Validar exportación CSV
+
+El dashboard incluye un botón para descargar el CSV de pronósticos.
+
+Comportamiento esperado:
+
+- está disponible para cualquier usuario autenticado
+- incluye datos de usuario, aprobación, estatus activo, partido, pronóstico y puntos
+
+## 🧪 Verificaciones recomendadas
+
+### Verificar base de datos
+
+```bash
+supabase db push
+```
+
+Consultas útiles:
+
+```sql
 SELECT * FROM public.users;
-
-# Verificar equipos
-SELECT * FROM public.teams;
-
-# Verificar partidos
 SELECT * FROM public.matches;
+SELECT * FROM public.predictions;
+SELECT * FROM public.leaderboard;
+SELECT * FROM public.predictions_export;
 ```
 
-### 2. Verificar API Endpoints
+### Verificar endpoints
 
 ```bash
-# Sincronizar partidos
-curl -X POST http://localhost:5173/api/sync/matches
-
-# Actualizar resultados
-curl -X POST http://localhost:5173/api/sync/results
-
-# Cron job
-curl http://localhost:5173/api/cron/sync-matches
+curl http://localhost:3000/api/health
+curl -X POST http://localhost:3000/api/sync/matches
+curl -X POST http://localhost:3000/api/sync/results
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
 ```
 
 ## 🐛 Solución de Problemas
 
-### Error: "Cannot find module"
+### No se puede autorizar o dar de baja a un participante
 
-```bash
-# Limpiar e instalar de nuevo
-rm -rf node_modules
-pnpm install
-```
+Verifica que esté aplicada la migración [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql), ya que agrega la política RLS para que administradores puedan actualizar participantes.
 
-### Error: "Supabase connection failed"
+### Error al recrear `predictions_export`
 
-1. Verificar que las credenciales en `environment.ts` sean correctas
-2. Verificar que el proyecto de Supabase esté activo
-3. Verificar la conexión a internet
+Verifica que esté aplicada la versión corregida de [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql), la cual elimina la vista antes de recrearla.
 
-### Error: "Football API rate limit"
+### No se pueden guardar predicciones
 
-La API gratuita tiene límites:
-- 10 llamadas por minuto
-- 100 llamadas por día
+Verifica que el usuario:
 
-Espera unos minutos antes de volver a intentar.
+- esté autenticado
+- esté autorizado
+- siga activo
+- intente guardar antes de que inicie el partido
 
-### Los partidos no se muestran
+## 📚 Siguientes documentos
 
-1. Verificar que se ejecutó la sincronización:
-```bash
-curl -X POST http://localhost:5173/api/sync/matches
-```
-
-2. Verificar en Supabase Dashboard que hay datos en la tabla `matches`
-
-### Las predicciones no se guardan
-
-1. Verificar que el usuario esté autenticado
-2. Verificar que el partido no esté bloqueado (`is_locked = false`)
-3. Verificar que el partido no haya comenzado
-
-## 📱 Probar en Diferentes Dispositivos
-
-### Móvil
-```bash
-# Obtener IP local
-ipconfig  # Windows
-ifconfig  # Mac/Linux
-
-# Acceder desde móvil
-http://TU_IP_LOCAL:5173
-```
-
-### Tablet y Desktop
-La aplicación es completamente responsiva y se adapta automáticamente.
-
-## 🚀 Desplegar a Producción
-
-### Vercel (Recomendado)
-
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Desplegar
-vercel
-```
-
-### Netlify
-
-```bash
-# Build
-pnpm build
-
-# Desplegar carpeta dist/analog/public
-```
-
-### Variables de Entorno en Producción
-
-Configurar en tu plataforma de hosting:
-
-```
-VITE_SUPABASE_URL=https://txxlwgpjqgffkexkyrnj.supabase.co
-VITE_SUPABASE_KEY=tu_supabase_anon_key
-FOOTBALL_API_TOKEN=9747e3521f4e4d82bb417f465c606180
-```
-
-## 📚 Próximos Pasos
-
-1. ✅ Crear más usuarios de prueba
-2. ✅ Hacer predicciones para varios partidos
-3. ✅ Esperar a que finalicen partidos (o simular resultados en BD)
-4. ✅ Ver cómo se actualizan los puntos automáticamente
-5. ✅ Explorar la tabla de posiciones
-
-## 🆘 Soporte
-
-Si encuentras problemas:
-
-1. Revisa la consola del navegador (F12)
-2. Revisa los logs del servidor
-3. Consulta la documentación en `README.md` y `AGENTS.md`
-4. Abre un issue en el repositorio
-
-## 🎉 ¡Listo!
-
-Tu aplicación de Quiniela Mundial está configurada y lista para usar.
-
-**¡Que gane el mejor predictor!** ⚽🏆
+- [`README.md`](README.md)
+- [`INICIO_RAPIDO.md`](INICIO_RAPIDO.md)
+- [`QUICKSTART.md`](QUICKSTART.md)
+- [`AGENTS.md`](AGENTS.md)
 
 ---
 

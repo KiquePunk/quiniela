@@ -1,31 +1,37 @@
 # ⚽ Quiniela Mundial - Aplicación de Predicciones
 
-Aplicación web completa para gestionar una quiniela del Mundial de Fútbol, construida con Angular, Analog.js y Supabase.
+Aplicación web completa para gestionar una quiniela del Mundial de Fútbol 2026, construida con Angular, backend Node/Express y Supabase.
 
 ## 🚀 Características
 
 - **Autenticación de Usuarios**: Sistema completo de registro e inicio de sesión con Supabase Auth
-- **Dashboard Interactivo**: Visualización de próximos partidos y ranking en tiempo real
+- **Autorización Administrativa**: Los usuarios pueden registrarse, pero sólo participan cuando un administrador autoriza su cuenta
+- **Administración de Participantes**: Módulo para autorizar, dar de baja lógicamente y reactivar participantes
+- **Dashboard Interactivo**: Visualización de próximos partidos, ranking en tiempo real, sección informativa y descarga pública de CSV
 - **Sistema de Predicciones**: Los usuarios pueden predecir marcadores antes de que inicien los partidos
+- **Filtros Avanzados de Predicciones**: La pantalla `Mis Predicciones` permite navegar por fecha, jornada y grupo/fase
 - **Bloqueo Automático**: Las predicciones se bloquean automáticamente cuando comienza un partido
-- **Integración con API Externa**: Sincronización automática con football-data.org para obtener equipos, partidos y resultados
+- **Integración con API Externa**: Sincronización automática con `football-data.org` para obtener equipos, partidos y resultados
+- **Mundial 2026**: Soporte para fase de grupos de 72 partidos, jornadas y fases eliminatorias
 - **Motor de Puntuación**: Sistema automático que calcula puntos basado en predicciones vs resultados reales
-- **Tabla de Posiciones**: Ranking en tiempo real de todos los participantes
-- **Diseño Responsivo**: Interfaz optimizada para móviles, tablets y monitores ultrawide usando Tailwind CSS
+- **Tabla de Posiciones**: Ranking en tiempo real de todos los participantes activos
+- **Exportación de Pronósticos**: Cualquier usuario autenticado puede descargar un CSV con los pronósticos para transparencia
+- **Diseño Responsivo**: Interfaz optimizada para móviles, tablets y monitores amplios usando Tailwind CSS
 
 ## 📋 Requisitos Previos
 
 - Node.js 18+ y pnpm
-- Cuenta de Supabase (gratuita)
-- API Token de football-data.org (gratuita)
+- Cuenta de Supabase
+- API Token de `football-data.org`
+- Supabase CLI opcional para aplicar migraciones localmente o remoto
 
 ## 🛠️ Stack Tecnológico
 
 - **Frontend**: Angular 19 + Tailwind CSS
-- **Backend**: Analog.js (API Routes)
+- **Backend**: Node.js + Express
 - **Base de Datos**: Supabase (PostgreSQL)
 - **Autenticación**: Supabase Auth
-- **API Externa**: football-data.org
+- **API Externa**: `football-data.org`
 - **Gestor de Paquetes**: pnpm
 
 ## 📦 Instalación
@@ -34,210 +40,211 @@ Aplicación web completa para gestionar una quiniela del Mundial de Fútbol, con
 
 ```bash
 git clone <repository-url>
-cd quiniela-mundial
+cd quiniela
 ```
 
 ### 2. Instalar dependencias
 
 ```bash
 pnpm install
+cd backend && pnpm install && cd ..
 ```
 
 ### 3. Configurar Supabase
 
-#### Opción A: Usar Supabase Cloud (Recomendado)
-
-1. Crear un proyecto en [supabase.com](https://supabase.com)
-2. Obtener las credenciales del proyecto (URL y anon key)
-3. Aplicar las migraciones:
+#### Opción A: Usar Supabase Cloud
 
 ```bash
-# Instalar Supabase CLI
 npm install -g supabase
-
-# Inicializar y vincular proyecto
 supabase login
 supabase link --project-ref txxlwgpjqgffkexkyrnj
-
-# Aplicar migraciones
 supabase db push
 ```
 
-#### Opción B: Usar Supabase Local
+#### Opción B: Usar Supabase local
 
 ```bash
-# Iniciar Supabase local
 supabase start
-
-# Aplicar migraciones
 supabase db reset
 ```
 
-### 4. Configurar Variables de Entorno
+### 4. Configurar variables de entorno
 
-Las credenciales ya están configuradas en `src/environments/environment.ts`:
+Revisar los valores de [`environment.ts`](src/environments/environment.ts) y [`backend/.env.example`](backend/.env.example).
 
-- **Supabase URL**: `https://txxlwgpjqgffkexkyrnj.supabase.co`
-- **Supabase Key**: Ya configurada
-- **Football API Token**: `9747e3521f4e4d82bb417f465c606180`
+Variables relevantes:
 
-### 5. Crear Usuarios de Prueba
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_KEY`
+- `FOOTBALL_API_TOKEN`
 
-Ver instrucciones en `supabase/seed-users.sql` para crear usuarios de prueba.
+### 5. Crear usuarios de prueba
 
-**Usuarios recomendados:**
-- admin@quiniela.com / Admin123!
-- juan.perez@example.com / User123!
-- maria.garcia@example.com / User123!
+Puedes crear usuarios desde Supabase Auth o registrarte desde la aplicación.
+
+Usuario recomendado para administración:
+
+- `admin@quiniela.com` / `Admin123!`
+
+> Después de crear el usuario administrador, aplica la migración [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql) para promoverlo como admin si aún no existe ese rol en la base de datos.
 
 ## 🚀 Ejecución
 
-### Modo Desarrollo
+### Desarrollo
 
 ```bash
-pnpm dev
+pnpm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:5173`
+Frontend disponible en `http://localhost:4200`
 
-### Modo Producción
+### Backend
 
 ```bash
-# Construir
-pnpm build
-
-# Ejecutar
-pnpm start
+pnpm run backend
 ```
 
-## 📁 Estructura del Proyecto
+Backend disponible en `http://localhost:3000`
 
-```
-quiniela-mundial/
-├── src/
-│   ├── app/
-│   │   ├── core/
-│   │   │   ├── guards/          # Guards de autenticación
-│   │   │   ├── interceptors/    # HTTP interceptors
-│   │   │   ├── models/          # Interfaces y tipos
-│   │   │   └── services/        # Servicios de negocio
-│   │   ├── features/
-│   │   │   ├── auth/            # Login y registro
-│   │   │   ├── dashboard/       # Dashboard principal
-│   │   │   ├── predictions/     # Gestión de predicciones
-│   │   │   └── leaderboard/     # Tabla de posiciones
-│   │   ├── app.component.ts
-│   │   ├── app.config.ts
-│   │   └── app.routes.ts
-│   └── environments/            # Configuración de entornos
-├── server/
-│   └── routes/
-│       └── api/
-│           ├── sync/            # Endpoints de sincronización
-│           └── cron/            # Tareas programadas
-├── supabase/
-│   ├── migrations/              # Migraciones de BD
-│   ├── config.toml              # Configuración de Supabase
-│   └── seed-users.sql           # Script de usuarios de prueba
-├── angular.json
-├── package.json
-├── tailwind.config.js
-└── vite.config.ts
-```
-
-## 🔄 Sincronización con Football API
-
-### Sincronización Manual
+### Todo junto
 
 ```bash
-# Sincronizar equipos y partidos
-curl -X POST http://localhost:5173/api/sync/matches
-
-# Actualizar resultados
-curl -X POST http://localhost:5173/api/sync/results
+pnpm run dev:all
 ```
 
-### Sincronización Automática (Cron)
+## 🔄 Sincronización con football-data.org
 
-El endpoint `/api/cron/sync-matches` puede configurarse para ejecutarse periódicamente:
+### Sincronización manual general
 
 ```bash
-# Ejemplo con cron (cada hora)
-0 * * * * curl http://localhost:5173/api/cron/sync-matches
+curl -X POST http://localhost:3000/api/sync/matches
+curl -X POST http://localhost:3000/api/sync/results
 ```
 
-## 🎯 Sistema de Puntuación
+### Sincronización específica de fase de grupos 2026
 
-- **3 puntos**: Acertar el marcador exacto
-- **1 punto**: Acertar el resultado (ganador o empate)
-- **0 puntos**: No acertar
+La fase de grupos del Mundial 2026 contiene **72 partidos**. Se obtiene toda la información con una sola llamada al endpoint de `football-data.org` y se persiste en Supabase.
+
+```bash
+curl -X POST http://localhost:3000/api/sync/group-stage-matches
+```
+
+### Cron
+
+El backend expone el endpoint [`GET /api/cron/sync-matches`](backend/server.js:261), que realiza en una sola ejecución:
+
+- sincronización de equipos y partidos
+- recálculo de puntos para partidos finalizados
+- bloqueo de partidos ya iniciados
+
+```bash
+curl http://localhost:3000/api/cron/sync-matches
+```
+
+Además, el backend programa una ejecución automática cada hora con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299), que consume internamente ese endpoint.
+
+## 🎯 Flujo funcional
+
+1. El usuario se registra
+2. Se crea su perfil en `public.users`
+3. Un administrador autoriza la cuenta desde `Administración`
+4. El usuario autorizado puede capturar pronósticos
+5. Si un administrador da de baja lógicamente al usuario:
+   - ya no aparece en la tabla de posiciones
+   - ya no puede seguir pronosticando
+   - puede ser reactivado después
+6. Cualquier usuario autenticado puede descargar el CSV de pronósticos desde el dashboard
+
+## 🧮 Sistema de Puntuación
+
+- **3 puntos** por acertar el marcador exacto
+- **1 punto** por acertar el resultado (ganador o empate)
+- **0 puntos** si no aciertas
 
 ## 🗄️ Esquema de Base de Datos
 
-### Tablas Principales
+### Tablas principales
 
-- **users**: Perfiles de usuarios
-- **teams**: Equipos del Mundial
-- **matches**: Partidos del torneo
-- **predictions**: Predicciones de los usuarios
+- `users`: perfiles de usuario, roles, aprobación y estatus activo
+- `teams`: equipos
+- `matches`: partidos del Mundial con `stage`, `group_name` y `matchday`
+- `predictions`: pronósticos por usuario y partido
 
 ### Vistas
 
-- **leaderboard**: Ranking calculado automáticamente
+- `leaderboard`: ranking calculado automáticamente sólo para participantes activos
+- `predictions_export`: dataset para exportar pronósticos a CSV
 
-### Funciones
+### Funciones y scripts útiles
 
-- `calculate_prediction_points()`: Calcula puntos de una predicción
-- `update_predictions_points()`: Actualiza puntos cuando finaliza un partido
-- `lock_started_matches()`: Bloquea partidos que ya comenzaron
+- `calculate_prediction_points()`
+- `update_predictions_points()`
+- [`delete_participant_by_id()`](supabase/migrations/007_delete_participant_script.sql:10)
+- [`delete_participant_by_email()`](supabase/migrations/007_delete_participant_script.sql:33)
 
 ## 🔐 Seguridad
 
-- Row Level Security (RLS) habilitado en todas las tablas
-- Autenticación JWT con Supabase
-- Políticas de acceso granulares
-- Validación de datos en frontend y backend
+- Row Level Security (RLS) habilitado
+- Restricción para que sólo usuarios autorizados y activos puedan crear/editar/eliminar pronósticos
+- Política adicional para que administradores puedan gestionar participantes
+- Protección contra borrado accidental de administradores en el script de eliminación física
 
-## 🧪 Testing
+## 🧾 Migraciones recientes relevantes
 
-```bash
-pnpm test
-```
+- [`004_user_roles_and_predictions_export.sql`](supabase/migrations/004_user_roles_and_predictions_export.sql)
+- [`005_seed_admin_user.sql`](supabase/migrations/005_seed_admin_user.sql)
+- [`006_logical_deactivation.sql`](supabase/migrations/006_logical_deactivation.sql)
+- [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql)
+- [`008_admin_user_management_policy.sql`](supabase/migrations/008_admin_user_management_policy.sql)
 
-## 📱 Características Responsivas
+## 👥 Administración de participantes
 
-- **Móvil**: Diseño optimizado para pantallas pequeñas
-- **Tablet**: Layout adaptativo
-- **Desktop**: Aprovecha el espacio disponible
-- **Ultrawide**: Diseño fluido sin límites de ancho
+Desde el módulo `Administración` se puede:
 
-## 🤝 Contribuir
+- Autorizar participantes pendientes
+- Dar de baja lógicamente participantes
+- Reactivar participantes dados de baja
 
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
+### Baja lógica vs borrado físico
 
-## 📄 Licencia
+- **Baja lógica**: el participante sigue existiendo, pero no aparece en ranking ni puede pronosticar
+- **Borrado físico**: elimina completamente al participante de `auth.users`, `public.users` y sus predicciones en cascada usando [`007_delete_participant_script.sql`](supabase/migrations/007_delete_participant_script.sql)
 
-Este proyecto está bajo la Licencia MIT.
+## 📤 Exportación CSV
 
-## 👥 Autores
+La exportación está disponible para todos los usuarios autenticados desde el dashboard.
 
-- Desarrollado con ❤️ por el equipo de Quiniela Mundial
+Contenido del CSV:
 
-## 🆘 Soporte
+- usuario
+- nombre completo
+- email
+- rol
+- aprobado
+- activo
+- fecha del partido
+- etapa
+- jornada
+- grupo
+- equipos
+- pronóstico
+- marcador real
+- puntos
 
-Para reportar bugs o solicitar features, por favor abre un issue en el repositorio.
+## 🧪 Verificación rápida
 
-## 🔗 Enlaces Útiles
+- Usuario admin puede entrar a `Administración`
+- Usuario nuevo no puede pronosticar hasta ser autorizado
+- Usuario dado de baja no puede pronosticar ni aparece en ranking
+- CSV descarga correctamente desde dashboard
+- Sincronización de grupos 2026 inserta 72 partidos
 
-- [Documentación de Angular](https://angular.io/docs)
-- [Documentación de Analog.js](https://analogjs.org)
-- [Documentación de Supabase](https://supabase.com/docs)
-- [Football Data API](https://www.football-data.org/documentation/quickstart)
-- [Tailwind CSS](https://tailwindcss.com/docs)
+## 📚 Documentación relacionada
+
+- [`INICIO_RAPIDO.md`](INICIO_RAPIDO.md)
+- [`QUICKSTART.md`](QUICKSTART.md)
+- [`SETUP.md`](SETUP.md)
+- [`AGENTS.md`](AGENTS.md)
 
 ---
 
