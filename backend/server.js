@@ -69,27 +69,36 @@ function buildTeamsFromMatches(matches) {
 function buildMatchesPayload(matches, options = {}) {
   const { includeMatchday = true } = options;
 
-  return matches.map(match => {
-    const payload = {
-      id: match.id,
-      utc_date: match.utcDate,
-      status: match.status,
-      stage: match.stage,
-      group_name: match.group || null,
-      home_team_id: match.homeTeam.id,
-      away_team_id: match.awayTeam.id,
-      home_score: match.score?.fullTime?.home ?? null,
-      away_score: match.score?.fullTime?.away ?? null,
-      venue: match.venue || null,
-      is_locked: new Date(match.utcDate) <= new Date()
-    };
+  return matches
+    .filter(match => {
+      // Filtrar partidos sin equipos definidos (típico en fases eliminatorias futuras)
+      if (!match.homeTeam?.id || !match.awayTeam?.id) {
+        console.log(`Skipping match ${match.id}: teams not yet defined`);
+        return false;
+      }
+      return true;
+    })
+    .map(match => {
+      const payload = {
+        id: match.id,
+        utc_date: match.utcDate,
+        status: match.status,
+        stage: match.stage,
+        group_name: match.group || null,
+        home_team_id: match.homeTeam.id,
+        away_team_id: match.awayTeam.id,
+        home_score: match.score?.fullTime?.home ?? null,
+        away_score: match.score?.fullTime?.away ?? null,
+        venue: match.venue || null,
+        is_locked: new Date(match.utcDate) <= new Date()
+      };
 
-    if (includeMatchday) {
-      payload.matchday = match.matchday || null;
-    }
+      if (includeMatchday) {
+        payload.matchday = match.matchday || null;
+      }
 
-    return payload;
-  });
+      return payload;
+    });
 }
 
 async function supportsMatchdayColumn() {
