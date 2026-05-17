@@ -295,8 +295,8 @@ app.get('/api/cron/sync-matches', async (req, res) => {
   }
 });
 
-// Schedule automatic sync every hour
-cron.schedule('0 * * * *', async () => {
+// Schedule automatic sync every 10 minutes
+cron.schedule('*/10 * * * *', async () => {
   console.log('Running scheduled sync...');
   try {
     const response = await fetch(`http://localhost:${PORT}/api/cron/sync-matches`);

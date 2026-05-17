@@ -89,7 +89,7 @@ curl http://localhost:3000/api/cron/sync-matches
 
 El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta sincronización completa, recalcula puntos de partidos finalizados y bloquea partidos iniciados.
 
-Además, el backend ya programa esta tarea automáticamente cada hora mediante [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
+Además, el backend ya programa esta tarea automáticamente cada 10 minutos mediante [`cron.schedule('*/10 * * * *', ...)`](backend/server.js:299).
 
 ## 🌐 URLs
 

@@ -132,7 +132,7 @@ La app soporta sincronización del Mundial 2026, incluyendo:
 4. Para partidos finalizados, se calculan puntos
 5. Los partidos se bloquean cuando ya comenzaron
 6. El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta el ciclo completo de sincronización
-7. El backend programa la ejecución automática cada hora con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299)
+7. El backend programa la ejecución automática cada 10 minutos con [`cron.schedule('*/10 * * * *', ...)`](backend/server.js:299)
 
 ## 🛠️ Tareas Comunes
 

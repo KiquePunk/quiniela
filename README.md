@@ -141,7 +141,7 @@ El backend expone el endpoint [`GET /api/cron/sync-matches`](backend/server.js:2
 curl http://localhost:3000/api/cron/sync-matches
 ```
 
-Además, el backend programa una ejecución automática cada hora con [`cron.schedule('0 * * * *', ...)`](backend/server.js:299), que consume internamente ese endpoint.
+Además, el backend programa una ejecución automática cada 10 minutos con [`cron.schedule('*/10 * * * *', ...)`](backend/server.js:299), que consume internamente ese endpoint.
 
 ## 🎯 Flujo funcional
 

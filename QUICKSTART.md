@@ -70,7 +70,7 @@ curl http://localhost:3000/api/cron/sync-matches
 curl http://localhost:3000/api/health
 ```
 
-El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta sincronización completa, recalcula puntos para partidos finalizados y bloquea partidos iniciados. También se ejecuta automáticamente cada hora mediante [`cron.schedule('0 * * * *', ...)`](backend/server.js:299).
+El endpoint [`/api/cron/sync-matches`](backend/server.js:261) ejecuta sincronización completa, recalcula puntos para partidos finalizados y bloquea partidos iniciados. También se ejecuta automáticamente cada 10 minutos mediante [`cron.schedule('*/10 * * * *', ...)`](backend/server.js:299).
 
 ## ⚽ Flujo de Uso Típico
 
