@@ -79,7 +79,7 @@ import { AdminService } from '../../core/services/admin.service';
               <h2 class="text-2xl font-bold text-gray-900">Acerca de la quiniela</h2>
               <ul class="space-y-2 text-sm text-gray-700">
                 <li>• Esta es una <b> quiniela del Team de Finanzas y OB </b> con el propósito de divertirnos durante el Mundial.</li>
-                <li>• El costo de la quiniela es de <b> $1000 pesos </b> por participante.</li>
+                <li>• El costo de la quiniela es de <b> $500 pesos </b> por participante.</li>
                 <li>• Los usuarios se pueden registrar pero no podrán participar en la quiniela hasta que un administrador autorice su participación.</li>
                 <li>• Los usuarios pueden predecir marcadores antes de que inicien los partidos.</li>
                 <li>• Las predicciones se bloquean automáticamente cuando comienza un partido.</li>
@@ -103,7 +103,7 @@ import { AdminService } from '../../core/services/admin.service';
               </p>
             </div>
 
-            <div class="lg:max-w-xs lg:w-full">
+<!--             <div class="lg:max-w-xs lg:w-full">
               <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <h3 class="text-lg font-semibold text-emerald-900">Exportar pronósticos</h3>
                 <p class="mt-2 text-sm text-emerald-800">
@@ -118,7 +118,7 @@ import { AdminService } from '../../core/services/admin.service';
                   {{ downloadingCsv ? 'Generando CSV...' : 'Descargar CSV' }}
                 </button>
               </div>
-            </div>
+            </div> -->
           </div>
         </section>
 
