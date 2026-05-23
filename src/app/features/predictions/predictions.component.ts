@@ -321,11 +321,11 @@ export class PredictionsComponent implements OnInit {
       }
     });
 
-    this.getKnockoutDateKeys().forEach(value => {
+/*     this.getKnockoutDateKeys().forEach(value => {
       if (!dateMap.has(value)) {
         dateMap.set(value, this.formatDateOptionLabel(`${value}T12:00:00`));
       }
-    });
+    }); */
 
     return Array.from(dateMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
@@ -339,9 +339,9 @@ export class PredictionsComponent implements OnInit {
       options.set(`MATCHDAY_${matchday}`, `Jornada ${matchday}`);
     });
 
-    (['LAST_32', 'LAST_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'] as MatchStage[]).forEach(stage => {
+/*     (['LAST_32', 'LAST_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'] as MatchStage[]).forEach(stage => {
       options.set(stage, this.getStageLabel(stage));
-    });
+    }); */
 
     return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
   }
