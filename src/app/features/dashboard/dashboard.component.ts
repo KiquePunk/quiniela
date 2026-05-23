@@ -99,7 +99,7 @@ import { AdminService } from '../../core/services/admin.service';
               </div>
 
               <p class="text-sm text-gray-700">
-                El ganador será el que al final de la primera ronda de partidos haya acumulado la mayor cantidad de puntos. En caso de empate la quiniela acumulada será divida entre los primeros lugares.
+                <b> El ganador será el que al final de la primera ronda de partidos haya acumulado la mayor cantidad de puntos. </b> En caso de empate la quiniela acumulada será divida entre los primeros lugares.
               </p>
             </div>
 
